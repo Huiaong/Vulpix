@@ -1,6 +1,6 @@
 import { login, logout, getInfo } from '@/api/user'
 import { getToken, setToken, removeToken } from '@/utils/auth'
-import { resetRouter } from '@/router'
+import router, { resetRouter } from '@/router'
 
 const getDefaultState = () => {
   return {
@@ -24,6 +24,9 @@ const mutations = {
   },
   SET_PORTRAIT: (state, portrait) => {
     state.portrait = portrait
+  },
+  SET_ROLES: (state, roles) => {
+    state.roles = roles
   }
 }
 
@@ -50,10 +53,11 @@ const actions = {
           return reject('Verification failed, please Login again.')
         }
 
-        const { name, portrait } = response
+        const { name, portrait, roles } = response
 
         commit('SET_NAME', name)
         commit('SET_PORTRAIT', portrait)
+        commit('SET_ROLES', roles)
         resolve(response)
       }).catch(error => {
         reject(error)
@@ -82,6 +86,26 @@ const actions = {
       commit('RESET_STATE')
       resolve()
     })
+  },
+
+  // dynamically modify permissions
+  async changeRoles({ commit, dispatch }, role) {
+    const token = role + '-token'
+
+    commit('SET_TOKEN', token)
+    setToken(token)
+
+    const { roles } = await dispatch('getInfo')
+
+    resetRouter()
+
+    // generate accessible routes map based on roles
+    const accessRoutes = await dispatch('permission/generateRoutes', roles, { root: true })
+    // dynamically add accessible routes
+    router.addRoutes(accessRoutes)
+
+    // reset visited views and cached views
+    dispatch('tagsView/delAllViews', null, { root: true })
   }
 }
 
